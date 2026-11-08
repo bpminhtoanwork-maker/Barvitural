@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Live Nightclub Overlay</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            width: 1080px;
+            height: 1920px;
+            overflow: hidden;
+            background-color: transparent;
+            font-family: 'Montserrat', Arial, sans-serif;
+            color: #fff;
+        }
+
+        /* KHUNG CẢNH BAR 3D VẢI NỀN */
+        .club-stage {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #1a0033 0%, #05000a 90%);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        /* HỆ THỐNG ĐÈN LASER & CHỚP FLASHLIGHT */
+        .laser-beam {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            mix-blend-mode: screen;
+            opacity: 0.4;
+            transition: all 0.5s ease;
+        }
+        .light-mode-default { background: radial-gradient(circle, rgba(147, 51, 234, 0.3), transparent 70%); }
+        .light-mode-strobe { animation: strobe 0.15s infinite alternate; }
+        .light-mode-fire { background: radial-gradient(circle, rgba(239, 68, 68, 0.6), transparent 60%); }
+        .light-mode-cyber { background: radial-gradient(circle, rgba(6, 182, 212, 0.6), transparent 60%); }
+
+        @keyframes strobe {
+            0% { background: rgba(255, 255, 255, 0.8); }
+            100% { background: rgba(236, 72, 153, 0.2); }
+        }
+
+        /* TIÊU ĐỀ & HÀNG NỐI */
+        .header-bar {
+            z-index: 10;
+            text-align: center;
+            margin-top: 60px;
+        }
+        .header-bar h1 {
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            text-shadow: 0 0 15px #ec4899, 0 0 30px #8b5cf6;
+        }
+        .header-bar p {
+            font-size: 24px;
+            color: #06b6d4;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        /* KHU VỰC DANCER PHÒNG BAY */
+        .dancer-stage {
+            position: absolute;
+            top: 220px;
+            width: 100%;
+            height: 350px;
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            z-index: 5;
+        }
+        .dancer {
+            width: 180px;
+            height: 300px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: bottom center;
+            display: none;
+            filter: drop-shadow(0 0 15px #ec4899);
+        }
+        .dancer-active {
+            display: block;
+            animation: danceBounce 0.6s infinite alternate ease-in-out;
+        }
+        @keyframes danceBounce {
+            0% { transform: translateY(0) scale(1); }
+            100% { transform: translateY(-20px) scale(1.05); }
+        }
+
+        /* SƠ ĐỒ BÀN KHÁCH (TABLE MAP) */
+        .floor-plan {
+            position: relative;
+            width: 1000px;
+            height: 950px;
+            margin-bottom: 80px;
+            z-index: 10;
+        }
+
+        /* KHU VỰC BÀN VIP CHÍNH GIỮA (4 GHẾ) */
+        .vip-center-zone {
+            position: absolute;
+            top: 38%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 440px;
+            height: 320px;
+            border: 3px solid #f59e0b;
+            border-radius: 25px;
+            background: rgba(245, 158, 11, 0.15);
+            box-shadow: 0 0 30px rgba(245, 158, 11, 0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+        .vip-title {
+            color: #fbbf24;
+            font-size: 26px;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px #f59e0b;
+            margin-bottom: 10px;
+        }
+        .vip-seats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+        }
+        .vip-seat {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px dashed #f59e0b;
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            min-height: 85px;
+        }
+        .vip-seat .seat-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .vip-seat .seat-status {
+            font-size: 14px;
+            color: #fbbf24;
+            margin-top: 4px;
+        }
+
+        /* 10 BÀN THƯỜNG XUNG QUANH */
+        .regular-tables-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            justify-content: space-between;
+            align-content: space-between;
+            height: 100%;
+            width: 100%;
+        }
+        .table-card {
+            width: 250px;
+            height: 140px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 2px solid #06b6d4;
+            border-radius: 16px;
+            padding: 12px;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+            transition: all 0.3s;
+        }
+        .table-card.occupied {
+            border-color: #ec4899;
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.6);
+            background: rgba(236, 72, 153, 0.15);
+        }
+        .table-header {
+            font-size: 18px;
+            font-weight: bold;
+            color: #06b6d4;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+        }
+        .table-card.occupied .table-header { color: #ec4899; }
+        .table-user {
+            font-size: 20px;
+            font-weight: 800;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .table-gift {
+            font-size: 14px;
+            color: #a7f3d0;
+            margin-top: 4px;
+        }
+
+        /* CÁC VỊ TRÍ ĐẶT BÀN 1 -> 10 GÓC */
+        .pos-1 { justify-self: start; }
+        .pos-2 { justify-self: end; }
+        .pos-3 { justify-self: start; }
+        .pos-4 { justify-self: end; }
+        .pos-5 { justify-self: start; }
+        .pos-6 { justify-self: end; }
+        .pos-7 { justify-self: start; }
+        .pos-8 { justify-self: end; }
+        .pos-9 { justify-self: start; }
+        .pos-10 { justify-self: end; }
+
+        /* POPUP THÔNG BÁO EVENT ĐỘC QUYỀN */
+        #alert-banner {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(0, 0, 0, 0.95);
+            border: 4px solid #f59e0b;
+            border-radius: 20px;
+            padding: 30px 50px;
+            text-align: center;
+            z-index: 100;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 50px rgba(245, 158, 11, 0.8);
+        }
+        #alert-banner.active { transform: translate(-50%, -50%) scale(1); }
+        #alert-title { font-size: 36px; color: #fbbf24; font-weight: 900; }
+        #alert-desc { font-size: 26px; color: #fff; margin-top: 10px; }
+
+        /* HƯỚNG DẪN TẶNG QUÀ TRÊN LIVESTREAM */
+        .gift-menu {
+            position: absolute;
+            bottom: 20px;
+            width: 1000px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-around;
+            z-index: 20;
+            font-size: 15px;
+        }
+        .menu-item { text-align: center; }
+        .menu-item span { color: #fbbf24; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="club-stage">
+        <div id="laser-layer" class="laser-beam light-mode-default"></div>
+
+        <!-- HEADER BANNER -->
+        <div class="header-bar">
+            <h1>🔥 ONLINE NIGHTCLUB LIVE 🔥</h1>
+            <p id="current-track">🎵 Now Playing: Vinahouse Remix 2026</p>
+        </div>
+
+        <!-- DANCER STAGE -->
+        <div class="dancer-stage">
+            <div id="dancer-left" class="dancer" style="background-image: url('https://cdn-icons-png.flaticon.com/512/3592/3592750.png');"></div>
+            <div id="dancer-right" class="dancer" style="background-image: url('https://cdn-icons-png.flaticon.com/512/3592/3592750.png');"></div>
+        </div>
+
+        <!-- FLOOR PLAN: BÀN REGULAR + BÀN VIP CHÍNH GIỮA -->
+        <div class="floor-plan">
+            
+            <!-- BÀN VIP CHÍNH GIỮA (4 GHẾ) -->
+            <div class="vip-center-zone">
+                <div class="vip-title">👑 BÀN VIP ULTRA (CENTER)</div>
+                <div class="vip-seats-grid">
+                    <div class="vip-seat" id="vip-seat-1">
+                        <div class="seat-name">Trống</div>
+                        <div class="seat-status">Ghế #1</div>
+                    </div>
+                    <div class="vip-seat" id="vip-seat-2">
+                        <div class="seat-name">Trống</div>
+                        <div class="seat-status">Ghế #2</div>
+                    </div>
+                    <div class="vip-seat" id="vip-seat-3">
+                        <div class="seat-name">Trống</div>
+                        <div class="seat-status">Ghế #3</div>
+                    </div>
+                    <div class="vip-seat" id="vip-seat-4">
+                        <div class="seat-name">Trống</div>
+                        <div class="seat-status">Ghế #4</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 10 BÀN THƯỜNG -->
+            <div class="regular-tables-grid">
+                <div class="table-card pos-1" id="tbl-1"><div class="table-header">Bàn 01</div><div class="table-user">Trống</div><div class="table-gift"></div></div>
+                <div class="table-card pos-2" id="tbl-2"><div class="table-header">Bàn 02</div><div class="table-user">Trống</div><div class="table-gift"></div></div>
+                <div class="table-card pos-3" id="tbl-3"><div class="table-header">Bàn 03</div><div class="table-user">Trống</div><div class="table-gift"></div></div>
+                <div class="table-card pos-4" id="tbl-4"><div class="table-header">Bàn 04</div><div class="table-user">Trống</div><div class="table-gift"></div></div>
+                <div class="table-card pos-5" id="tbl-5"><div class="table-header">Bàn 05</div><div class="table-user">Trống</div><div class="table-gift"></div></div>
+                <div class="table-card pos-6" id="tbl-6"><div class="table-header">Bàn 06</div><div class="table-user">Trống</div><div class="table-gift"></div></div>
+                <div class="table-card pos-7" id="tbl-7"><div class="table-header">Bàn 07</div><div class="table-user">Trống</div><div class="table-gift"></div></div>
+                <div class="table-card pos-8" id="tbl-8"><div class="table-header">Bàn 08</div><div class="table-user">Trống</div><div class="table-gift"></div></div>
+                <div class="table-card pos-9" id="tbl-9"><div class="table-header">Bàn 09</div><div class="table-user">Trống</div><div class="table-gift"></div></div>
+                <div class="table-card pos-10" id="tbl-10"><div class="table-header">Bàn 10</div><div class="table-user">Trống</div><div class="table-gift"></div></div>
+            </div>
+        </div>
+
+        <!-- POPUP NOTIFICATION -->
+        <div id="alert-banner">
+            <div id="alert-title">EVENT TITLE</div>
+            <div id="alert-desc">Event Details</div>
+        </div>
+
+        <!-- MENU GÁN QUÀ -->
+        <div class="gift-menu">
+            <div class="menu-item">🌹 <span>Hoa Hồng</span>: Bàn Thường</div>
+            <div class="menu-item">🏎️ <span>Xe Sức Mạnh / Sư Tử</span>: Ghế VIP</div>
+            <div class="menu-item">🎵 <span>Nốt Nhạc</span>: Đổi Bài</div>
+            <div class="menu-item">⚡ <span>Mũ Bảo Hiểm</span>: Đổi Đèn Laser</div>
+            <div class="menu-item">💃 <span>Vũ Trụ / Thiên Thần</span>: Dancer Nhảy</div>
+        </div>
+    </div>
+
+    <script>
+        // QUẢN LÝ TRẠNG THÁI HỆ THỐNG
+        let currentRegularTableIndex = 1;
+        let currentVipSeatIndex = 1;
+
+        // 1. XỬ LÝ VÀO BÀN THƯỜNG (Quà Nhỏ: Rose, Finger Heart...)
+        function assignRegularTable(username, giftName) {
+            const tableCard = document.getElementById(`tbl-${currentRegularTableIndex}`);
+            tableCard.classList.add('occupied');
+            tableCard.querySelector('.table-user').innerText = username;
+            tableCard.querySelector('.table-gift').innerText = `🍸 ${giftName}`;
+            
+            showBanner("BÀN MỚI CÓ KHÁCH!", `${username} đã nhận Bàn ${currentRegularTableIndex.toString().padStart(2, '0')}`);
+
+            currentRegularTableIndex++;
+            if (currentRegularTableIndex > 10) currentRegularTableIndex = 1; // Vòng lặp đè bàn cũ
+        }
+
+        // 2. XỬ LÝ VÀO BÀN VIP CHÍNH GIỮA (Quà To: Lion, Universe, Car...)
+        function assignVipSeat(username, giftName) {
+            const seat = document.getElementById(`vip-seat-${currentVipSeatIndex}`);
+            seat.style.background = 'rgba(245, 158, 11, 0.4)';
+            seat.querySelector('.seat-name').innerText = username;
+            seat.querySelector('.seat-status').innerText = `🍾 ${giftName}`;
+
+            showBanner("👑 VIP SUPERSTAR!", `${username} đã bao Ghế VIP #${currentVipSeatIndex} chính giữa sàn!`);
+
+            currentVipSeatIndex++;
+            if (currentVipSeatIndex > 4) currentVipSeatIndex = 1; // 4 Ghế xoay vòng
+        }
+
+        // 3. XỬ LÝ ĐỔI NHẠC (Quà: Music Note, Microphone...)
+        function changeMusicTrack(username, songName) {
+            document.getElementById('current-track').innerText = `🎵 Now Playing: ${songName} (Req by ${username})`;
+            showBanner("ĐỔI BÀI HÁT!", `${username} đã yêu cầu bài: ${songName}`);
+        }
+
+        // 4. XỬ LÝ ĐỔI HIỆU ỨNG ÁNH SÁNG (Quà: Cap, Glasses, Sunglasses...)
+        function changeLighting(modeName) {
+            const laser = document.getElementById('laser-layer');
+            laser.className = 'laser-beam'; // Reset
+            
+            if(modeName === 'strobe') laser.classList.add('light-mode-strobe');
+            else if(modeName === 'fire') laser.classList.add('light-mode-fire');
+            else if(modeName === 'cyber') laser.classList.add('light-mode-cyber');
+            else laser.classList.add('light-mode-default');
+
+            showBanner("ÁNH SÁNG BIẾN ĐỔI!", `Chế độ đèn: ${modeName.toUpperCase()}`);
+        }
+
+        // 5. XỬ LÝ GỌI DANCER NHẢY (Quà: Planet, Train, Castle...)
+        function triggerDancer(durationSeconds = 15) {
+            const d1 = document.getElementById('dancer-left');
+            const d2 = document.getElementById('dancer-right');
+            d1.classList.add('dancer-active');
+            d2.classList.add('dancer-active');
+
+            showBanner("DANCER ON STAGE!", "Dancer đang lên sàn nhảy quẩy nhiệt!");
+
+            setTimeout(() => {
+                d1.classList.remove('dancer-active');
+                d2.classList.remove('dancer-active');
+            }, durationSeconds * 1000);
+        }
+
+        // HÀM HIỂN THỊ POPUP THÔNG BÁO
+        function showBanner(title, desc) {
+            const banner = document.getElementById('alert-banner');
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-desc').innerText = desc;
+            banner.classList.add('active');
+            
+            setTimeout(() => {
+                banner.classList.remove('active');
+            }, 4000);
+        }
+
+        // ==========================================
+        // KHU VỰC BẮT SỰ KIỆN TỪ TIKTOK LIVE CONNECTOR
+        // ==========================================
+        function handleTikTokGift(data) {
+            const username = data.nickname || data.uniqueId;
+            const giftName = data.giftName;
+
+            // Phân loại quà tặng theo yêu cầu
+            switch(giftName) {
+                // Quà Nhỏ -> Bàn Thường (10 bàn)
+                case 'Rose':
+                case 'TikTok':
+                case 'Finger Heart':
+                    assignRegularTable(username, giftName);
+                    break;
+
+                // Quà To -> Bàn VIP (4 Ghế giữa)
+                case 'Lion':
+                case 'Sports Car':
+                case 'Leon the Lion':
+                    assignVipSeat(username, giftName);
+                    break;
+
+                // Quà Đổi Nhạc
+                case 'Music Note':
+                case 'Microphone':
+                    changeMusicTrack(username, "Vinahouse Bass Boost 2026");
+                    break;
+
+                // Quà Đổi Đèn
+                case 'Cap':
+                case 'Sunglasses':
+                    changeLighting('strobe');
+                    break;
+
+                // Quà Gọi Dancer
+                case 'Drama Queen':
+                case 'Universe':
+                case 'TikTok Universe':
+                    triggerDancer(20);
+                    break;
+            }
+        }
+
+        // GIẢ LẬP CHẠY THỬ NGHIỆM ĐỂ TEST MÀN HÌNH (Xóa khi livestream thật)
+        setTimeout(() => assignRegularTable("Tuấn_Suber", "Rose"), 2000);
+        setTimeout(() => assignVipSeat("Đại_Gia_Tà_Xùa", "Sports Car"), 4000);
+        setTimeout(() => changeLighting('fire'), 6000);
+        setTimeout(() => triggerDancer(10), 8000);
+    </script>
+</body>
+</html>
